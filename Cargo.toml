@@ -1,0 +1,6 @@
+[package]
+name = "enstructor"
+version = "0.1.0"
+authors = ["max"]
+
+[dependencies]
