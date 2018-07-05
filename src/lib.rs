@@ -1,10 +1,8 @@
 #![feature(rust_2018_edition, rustc_private, proc_macro, extern_prelude,
            iterator_flatten)]
-#![allow(dead_code)]
 
 #[macro_use]
 extern crate quote;
-#[macro_use]
 extern crate syn;
 
 use heck::{
@@ -18,10 +16,6 @@ use quote::{
     quote_each_token,
     quote_spanned,
 };
-use std::{
-    ops::Deref,
-    vec::IntoIter,
-};
 use syn::{
     punctuated::Punctuated,
     spanned::Spanned,
@@ -31,15 +25,11 @@ use syn::{
 
 #[proc_macro_derive(DefaultEnum, attributes(Default))]
 pub fn default_enum(input: TokenStream) -> TokenStream {
-    // panic!("{:?}", input);
-
     let input: proc_macro2::TokenStream = input.into();
 
     let ast: DeriveInput = syn::parse2(input).unwrap();
 
-    // panic!("{:?}", quote!(#ast));
 
-    // let vis = &ast.vis;
     let variants = match ast.data {
         Data::Enum(enm) => enm.variants,
         _ => panic!("May only derive(DefaultEnum) for enums"),
@@ -95,7 +85,6 @@ pub fn default_enum(input: TokenStream) -> TokenStream {
     let enum_name = &ast.ident;
 
     let here_default = quote!(Default);
-    // let span = enum_name.span();
 
     let out = quote!(
         impl #impl_generics #here_default for #enum_name #ty_generics
@@ -108,7 +97,6 @@ pub fn default_enum(input: TokenStream) -> TokenStream {
         }
     );
 
-    // panic!("{}", out);
 
     out.into()
 }
@@ -116,46 +104,22 @@ pub fn default_enum(input: TokenStream) -> TokenStream {
 
 #[proc_macro_attribute]
 pub fn enum_inner(_: TokenStream, input: TokenStream) -> TokenStream {
-    // panic!("\n\n{}\n{:?}", input, input);
     let input: proc_macro2::TokenStream = input.into();
-    // panic!("\n\n{}\n{:?}", input, input);
     let ast: DeriveInput = syn::parse2(input).unwrap();
-    // panic!("\n{:?}", quote_spanned!(ast.span()=> #ast));
     let name = &ast.ident;
     let vis = &ast.vis;
-    // panic!("{:?}", input);
     let enum_data = ensure_enum(&ast);
 
-    // let reduced_bounds = enum_data
-    //     .variants
-    //     .iter()
-    //     .map(|v| reduce_bounds(&ast, v))
-    //     .map(|b| {
-    //         let (_, ty, wh) = b.split_for_impl();
-    //         format!(
-    //             "{}\n",
-    //             quote!{
-    //                 #vis struct #ty {}
-    //                 #wh
-    //             }
-    //         )
-    //     });
 
-    // panic!("\n{}", reduced_bounds.collect::<String>());
 
     let var_names = variant_names(enum_data).into_iter().collect::<Vec<_>>();
     let var_names_iter = var_names.iter();
-    // let out = quote!(#ast).into();
     let id_name: syn::Ident =
         syn::Ident::new(&format!("{}Type", name).to_camel_case(), name.span());
     let id_enum = quote_spanned!{name.span()=>
         #[derive(Eq, PartialEq, Hash, Copy, Clone, Debug)]
         #vis enum #id_name { #(#var_names_iter,)* }
     };
-    let (impl_generics, ty_generics, where_clause) =
-        ast.generics.split_for_impl();
-    let orig_and_id_variants = enum_data.variants.iter().zip(var_names.iter());
-    let match_arms = orig_and_id_variants.map(|(orig, id)| {});
     let trait_name_string = format!("As{}", id_name);
     let trait_name =
         syn::Ident::new(&trait_name_string.to_camel_case(), name.span());
@@ -166,29 +130,8 @@ pub fn enum_inner(_: TokenStream, input: TokenStream) -> TokenStream {
             fn #fn_name(&self) -> #id_name;
         }
     };
-    // panic!("{:?}", as_trait);
-    let trait_impl = var_names.iter().map(|v| {
-        quote_spanned!{v.span()=>
-            impl #impl_generics #trait_name for #v #ty_generics
-            #where_clause
-            {
-                fn #fn_name(&self) -> #id_name {
-                    #id_name :: #v
-                }
-            }
-        }
-    });
 
-    let variant_types = enum_data.variants.iter().map(|v| {
-        let lifetime_bounds = ast.generics.lifetimes().into_iter().map(|l| l.lifetime.clone()).collect::<Punctuated<_,Token![,]>>();
-        let (lifes, tys) = GenericType::lifetimes_and_types(v.as_generic());
-        let lifes = lifetime_bounds_intersection(&lifetime_bounds, &lifes);
-        // let lifes = lifes.into_iter().map(|g| g.as_tokens());
-        let tys = tys.into_iter().map(|g| g.as_tokens());
-        quote!(<#(#lifes,)* #(#tys),*>)
-    });
 
-    // panic!("{}", quote!(#(#variant_types),*));
 
     let inner_structs = enum_data
         .variants
@@ -202,7 +145,6 @@ pub fn enum_inner(_: TokenStream, input: TokenStream) -> TokenStream {
             };
             let bounds = reduce_bounds(&ast, v);
             let (impl_types, struct_types, struct_where) = bounds.split_for_impl();
-            // let struct_generics = reduce_generics(&ast, v);
             let attrs = &v.attrs;
             let ident = &v.ident;
             let fields = &v.fields;
@@ -226,60 +168,13 @@ pub fn enum_inner(_: TokenStream, input: TokenStream) -> TokenStream {
     let inner_struct_iter = inner_structs.iter();
     let out = quote_spanned!{ast.span()=>
         #id_enum
-        // #ast
         #(#inner_struct_iter)*
         #as_trait
-        // #(#trait_impl)*
     };
-    // panic!("{}", out);
-    // let inner_struct_iter = inner_structs.iter();
-    // let in_struct = quote!(#(#inner_struct_iter)*);
-    // return in_struct.into();
-    // panic!("\n\n{}\n{:?}", out, out);
     out.into()
 }
 
-fn generic_types(ast: &DeriveInput) -> impl IntoIterator<Item = &syn::Ident> {
-    ast.generics.type_params().map(|p| &p.ident)
-}
 
-fn inner_types(ast: &syn::Variant) -> impl IntoIterator<Item = &syn::Type> {
-    use syn::{
-        Fields::*,
-        FieldsNamed,
-        FieldsUnnamed,
-    };
-    match ast.fields {
-        Named(FieldsNamed {
-            brace_token: _,
-            named: ref punc,
-        })
-        | Unnamed(FieldsUnnamed {
-            paren_token: _,
-            unnamed: ref punc,
-        }) => Some(punc.iter().map(|f| &f.ty)),
-        _ => None,
-    }.into_iter()
-        .flatten()
-        .flat_map(|t| {
-            use syn::Type::*;
-            match t {
-                Slice(syn::TypeSlice { elem: ty, .. })
-                | Ptr(syn::TypePtr { elem: ty, .. })
-                | Reference(syn::TypeReference { elem: ty, .. })
-                | Array(syn::TypeArray { elem: ty, .. }) => Some(ty.deref()),
-                Tuple(_) => unimplemented!(), /* TODO Deal with tuples in inner structs */
-                _ => panic!(),
-            }
-            // Some(t)
-        })
-}
-// fn inner_types(ast: &syn::Variant) -> impl IntoIterator<Item = &syn::Type> {
-
-fn generic_lifetimes(ast: &DeriveInput)
-                     -> impl IntoIterator<Item = &syn::Lifetime> {
-    ast.generics.lifetimes().map(|l| &l.lifetime)
-}
 
 fn variant_names(e: &syn::DataEnum) -> impl IntoIterator<Item = &syn::Ident> {
     e.variants.iter().map(|v| &v.ident)
@@ -299,55 +194,7 @@ fn _unreference(mut ty: &syn::Type) -> &syn::Type {
     ty
 }
 
-fn type_paths(ty: &syn::Type) -> Vec<&syn::Path> {
-    use syn::Type::*;
-    match ty {
-        Slice(syn::TypeSlice { elem: t, .. })
-        | Array(syn::TypeArray { elem: t, .. })
-        | Ptr(syn::TypePtr { elem: t, .. })
-        | Reference(syn::TypeReference { elem: t, .. })
-        | Paren(syn::TypeParen { elem: t, .. })
-        | Group(syn::TypeGroup { elem: t, .. }) => type_paths(t),
-        Tuple(syn::TypeTuple { elems: ts, .. }) => {
-            ts.iter().flat_map(|t| type_paths(t)).collect()
-        },
-        Path(syn::TypePath { path: p, .. }) => vec![p],
-        Never(_) | Macro(_) | Verbatim(_) | Infer(_) => vec![],
-        BareFn(_) | TraitObject(_) | ImplTrait(_) => vec![],
-    }
-}
 
-// fn used_generic_type_idents(path: &syn::Path) -> Vec<&syn::Ident> {
-// }
-
-// fn final_type_idents_from_path_segment(seg: &syn::PathSegment) -> (&syn::Ident, Vec<&syn::Ident>) {
-//     let out =
-//     match seg.arguments {
-//         syn::PathArguments::AngleBracketed(ref args) => {
-//             args.args.iter().map(|ga| {
-//                 match ga {
-//                     syn::GenericArgument::Lifetime(l) => {
-//                     }
-//                 }
-//             });
-//             vec![]
-//         }
-//         syn::PathArguments::Parenthesized(ref args) => {
-//             vec![]
-//         }
-//         syn::PathArguments::None => vec![]
-//     };
-//     (&seg.ident, out)
-// }
-
-
-fn lifetime_bounds_intersection<P: Default>(
-    lifetime_bounds: &'a syn::punctuated::Punctuated<syn::Lifetime, P>,
-    lifetimes: &Vec<GenericType>)
-    -> syn::punctuated::Punctuated<&'a syn::Lifetime, P> {
-    // lifetime_bounds.iter().filter(|&l| lifetimes.contains(&l.into())).collect()
-    lifetime_bounds.strip(lifetimes)
-}
 
 trait Strip<'a, T: 'a, P: Default>: IntoIterator<Item = &'a T> {
     fn strip(self,
@@ -364,23 +211,17 @@ impl<'a, T: 'a, P: Default> Strip<'a, T, P> for &'a Punctuated<T, P>
     }
 }
 
-// fn normalize_where_predicates(clause: syn::WhereClause) -> Option<syn::WhereClause> {
-//     if let Some(_) =
-// }
 
 fn reduce_bounds(enum_ast: &DeriveInput,
                  struct_ast: &syn::Variant)
                  -> syn::Generics {
-    // Punctuated<syn::GenericParam, Token![,]> {
-    let enum_generics = enum_ast.generics.as_generic();
     let struct_generics = struct_ast.as_generic();
-    let reduced_where_bounds = enum_ast
-        .generics
-        .where_clause
-        .iter()
-        .flat_map(|w| w.predicates.iter())
-        .filter_map(|w| {
-            match w.clone() {
+    let reduced_where_bounds = enum_ast.generics
+                                       .where_clause
+                                       .iter()
+                                       .flat_map(|w| w.predicates.iter())
+                                       .filter_map(|w| {
+                                           match w.clone() {
                 syn::WherePredicate::Lifetime(syn::PredicateLifetime {
                     lifetime,
                     colon_token,
@@ -409,10 +250,6 @@ fn reduce_bounds(enum_ast: &DeriveInput,
                     bounds,
                     ..
                 }) => {
-                    // let ident = syn::Ident::new(
-                    //     "placeholder",
-                    //     proc_macro2::Span::call_site(),
-                    // );
                     let relevant = {
                         let bounded_types = bounded_ty.as_generic();
                         bounded_types.len() > 0
@@ -422,10 +259,6 @@ fn reduce_bounds(enum_ast: &DeriveInput,
                     };
 
                     if relevant {
-                        // }
-                        // if struct_generics
-                        //     .contains(&GenericType::new_from_type_ident(&ident))
-                        // {
                         let bounds = bounds
                             .into_iter()
                             .filter_map(|b| {
@@ -461,7 +294,7 @@ fn reduce_bounds(enum_ast: &DeriveInput,
                 },
                 _ => None,
             }
-        });
+                                       });
     let where_clause = Some(syn::WhereClause { where_token: syn::token::Where::default(),
                                 predicates:  reduced_where_bounds.collect(), });
     let params = enum_ast.generics
@@ -532,7 +365,6 @@ fn reduce_bounds(enum_ast: &DeriveInput,
                 },
                 _ => None,
             }
-                             // None
                          })
                          .collect::<Punctuated<_, _>>();
     let span = params.span();
@@ -541,54 +373,6 @@ fn reduce_bounds(enum_ast: &DeriveInput,
                                    gt_token: Some(span.into()),
                                    where_clause, };
     generics
-    // let reduced = intersection(enum_generics.iter(), struct_generics.iter())
-    //     .into_iter()
-    //     .map(|g| g.as_tokens());
-
-    // quote!(<#(#reduced),*>)
-
-    // let attrs = &struct_ast.attrs;
-    // let ident = &struct_ast.ident;
-    // let fields = &struct_ast.fields;
-    // let semicolon = if let syn::Fields::Named(_) = fields {
-    //     quote!(;)
-    // } else {
-    //     quote!()
-    // };
-
-    // quote!{
-    //     #(#attrs)*
-    //     struct #ident <#(#reduced),*>
-    //         #fields #semicolon
-    // }
-}
-
-
-fn reduce_generics(enum_ast: &DeriveInput,
-                   struct_ast: &syn::Variant)
-                   -> proc_macro2::TokenStream {
-    let enum_generics = enum_ast.generics.as_generic();
-    let struct_generics = struct_ast.as_generic();
-    let reduced = intersection(enum_generics.iter(), struct_generics.iter())
-        .into_iter()
-        .map(|g| g.as_tokens());
-
-    quote_spanned!(struct_ast.span()=> <#(#reduced),*>)
-
-    // let attrs = &struct_ast.attrs;
-    // let ident = &struct_ast.ident;
-    // let fields = &struct_ast.fields;
-    // let semicolon = if let syn::Fields::Named(_) = fields {
-    //     quote!(;)
-    // } else {
-    //     quote!()
-    // };
-
-    // quote!{
-    //     #(#attrs)*
-    //     struct #ident <#(#reduced),*>
-    //         #fields #semicolon
-    // }
 }
 
 
@@ -647,7 +431,6 @@ impl<'a> AsGenerics<'a> for syn::LifetimeDef {
 impl<'a> AsGenerics<'a> for syn::Type {
     fn as_generic(&'a self) -> Vec<GenericType<'a>> {
         use syn::Type::*;
-        // println!("AsGenerics");
         match self {
             Slice(syn::TypeSlice { elem: t, .. })
             | Array(syn::TypeArray { elem: t, .. })
@@ -658,23 +441,11 @@ impl<'a> AsGenerics<'a> for syn::Type {
                 ts.iter().flat_map(|t| t.as_generic()).collect()
             },
             Reference(syn::TypeReference { lifetime, elem: t, .. }) => {
-                // vec![lifetime.as_generic(),t.as_generic()].into_iter().flatten().collect()
                 let mut out = lifetime.as_generic();
                 out.append(&mut t.as_generic());
-                // println!(
-                //     "refrence: {} || lifetimes: {:?}, types: {:?}",
-                //     quote!(#lifetime #t),
-                //     lifetime.as_generic(),
-                //     t.as_generic()
-                // );
-                // println!("ref debug: {:?}", out);
                 out
             },
-            Path(syn::TypePath { path: p, .. }) => {
-                // let p_gen = p.as_generic();
-                // println!("{} -- {:?}", quote!(#p), p_gen);
-                p.as_generic()
-            },
+            Path(syn::TypePath { path: p, .. }) => p.as_generic(),
             Never(_) | Macro(_) | Verbatim(_) | Infer(_) => vec![],
             BareFn(_) | TraitObject(_) | ImplTrait(_) => vec![],
         }
@@ -692,10 +463,8 @@ impl<'a> AsGenerics<'a> for syn::Path {
         let mut segs = self.segments.iter().collect::<Vec<_>>();
         match segs.pop() {
             Some(seg) => {
-                // println!("segment: {}", quote!(#seg));
                 if seg.arguments.is_empty() {
                     if segs.len() > 0 {
-                        // println!("Too long");
                         return vec![];
                     }
                     vec![GenericType::new_from_type_ident(&seg.ident)]
@@ -731,7 +500,6 @@ impl<'a> AsGenerics<'a> for syn::PathArguments {
                       .collect()
             },
         }
-        // vec![]
     }
 }
 
@@ -794,6 +562,7 @@ impl<'a> PartialEq<syn::GenericArgument> for GenericType<'a> {
     }
 }
 
+#[allow(dead_code)]
 impl<'a> GenericType<'a> {
     fn as_ident(&self) -> &syn::Ident {
         use self::GenericType::*;
@@ -848,45 +617,7 @@ crate fn intersection<'a, T: 'a + PartialEq>(
     a.into_iter().filter(move |e| bs.contains(e))
 }
 
-enum DoubleOption<T> {
-    Zero,
-    One(T),
-    Two(T, T),
-}
 
-impl<T> DoubleOption<T> {
-    fn take(mut self) -> Option<T> {
-        use self::DoubleOption::{
-            One,
-            Two,
-            Zero,
-        };
-        match self {
-            Zero => None,
-            One(t) => {
-                self = Zero;
-                Some(t)
-            },
-            Two(t1, t2) => {
-                self = One(t2);
-                Some(t1)
-            },
-        }
-    }
-}
-
-impl<T> IntoIterator for DoubleOption<T> {
-    type IntoIter = IntoIter<T>;
-    type Item = T;
-    fn into_iter(self) -> Self::IntoIter {
-        use self::DoubleOption::*;
-        match self {
-            Zero => vec![],
-            One(t) => vec![t],
-            Two(t1, t2) => vec![t1, t2],
-        }.into_iter()
-    }
-}
 
 #[cfg(test)]
 mod tests {
@@ -896,23 +627,16 @@ mod tests {
         *,
     };
 
-    // #[test]
+    #[test]
     fn test_types() {
-        // let ts: proc_macro2::TokenStream = "pub struct Ty<'a, T: 'a + 'b, 'b: \
-        //                                     'a, U>(&'a T, Option<U>, usize, \
-        //                                     &'a &'b (&'b T, U));"
-        //     .parse()
-        //     .unwrap();
         let q = quote!{
             pub struct Ty<'a, 'b: 'a, T: 'a + 'b, U>(&'a T, std::option::Option<U>, usize, &'a &'b (&'b T, U));
         };
-        // let ast: DeriveInput = syn::parse2(ts.into()).unwrap();
         let ast: DeriveInput = syn::parse2(q).unwrap();
         let data = &ast.data;
         if let syn::Data::Struct(s) = data {
             if let syn::Fields::Unnamed(u) = &s.fields {
                 for ty in u.unnamed.iter().map(|f| &f.ty) {
-                    // print!("type: {}: ", quote!(#ty));
                     use syn::Type::*;
                     println!("{}", match ty {
                         Verbatim(_) => "verbatim",
@@ -942,7 +666,6 @@ mod tests {
                 }
             }
         }
-        // panic!("{:?}", quote!(#ast));
     }
 
     #[test]
