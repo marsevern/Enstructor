@@ -1,0 +1,154 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "type": "shell",
+            "label": "check",
+            "group": "build",
+            "command": "cargo",
+            "args": [
+                "check"
+            ],
+        },
+        {
+            "type": "shell",
+            "label": "check -- wsl",
+            "options": {
+                "shell": {
+                    "executable": "C:\\Windows\\System32\\bash.exe",
+                    "args": [
+                        "-l",
+                        "-c"
+                    ]
+                }
+            },
+            "group": "build",
+            "command": "cargo",
+            "args": [
+                "check"
+            ],
+        },
+        {
+            "type": "shell",
+            "label": "release",
+            "group": "build",
+            "command": "cargo",
+            "args": [
+                "build",
+                "--release"
+            ],
+        },
+        {
+            "type": "shell",
+            "label": "release -- wsl",
+            "group": "build",
+            "command": "cargo",
+            "options": {
+                "shell": {
+                    "executable": "C:\\Windows\\System32\\bash.exe",
+                    "args": [
+                        "-l",
+                        "-c"
+                    ]
+                }
+            },
+            "args": [
+                "build",
+                "--release"
+            ],
+        },
+        {
+            "type": "shell",
+            "label": "build",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "command": "cargo",
+            "args": [
+                "build",
+                // "-Z",
+                // "external-macro-backtrace"
+            ],
+        },
+        {
+            "type": "shell",
+            "label": "build -- wsl",
+            "group": "build",
+            "command": "cargo",
+            "options": {
+                "shell": {
+                    "executable": "C:\\Windows\\System32\\bash.exe",
+                    "args": [
+                        "-l",
+                        "-c"
+                    ]
+                }
+            },
+            "args": [
+                "build"
+            ],
+        },
+        {
+            "type": "shell",
+            "label": "test",
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "command": "cargo",
+            "args": [
+                "test",
+                "--",
+                "--nocapture"
+            ],
+        },
+        {
+            "type": "shell",
+            "label": "test -- wsl",
+            "group": "build",
+            "command": "cargo",
+            "options": {
+                "shell": {
+                    "executable": "C:\\Windows\\System32\\bash.exe",
+                    "args": [
+                        "-l",
+                        "-c"
+                    ]
+                }
+            },
+            "args": [
+                "test",
+                "--",
+                "--nocapture"
+            ],
+            "problemMatcher": [
+                "$rustc"
+            ]
+        },
+        {
+            "type": "shell",
+            "label": "doc",
+            "group": "build",
+            "command": "cargo",
+            "args": [
+                "doc",
+            ],
+        },
+        {
+            "type": "shell",
+            "label": "doc open",
+            "group": "build",
+            "command": "cargo",
+            "args": [
+                "doc",
+                "--open"
+            ],
+            "problemMatcher": [
+                "$rustc"
+            ]
+        },
+    ]
+}
