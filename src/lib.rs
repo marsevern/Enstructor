@@ -317,6 +317,23 @@ impl From<WrapperInner> for syn::Item {
     }
 }
 
+impl WrapperInner {
+    fn ident(&self) -> &syn::Ident {
+        use self::WrapperInner::*;
+        match self {
+            Enum(e) => &e.item_enum.ident,
+            Struct(s) => &s.ident,
+        }
+    }
+    fn generics(&self) -> &syn::Generics {
+        use self::WrapperInner::*;
+        match self {
+            Enum(e) => &e.item_enum.generics,
+            Struct(s) => &s.generics,
+        }
+    }
+}
+
 impl Synom for WrapperInner {
     named!{
         parse -> Self,
