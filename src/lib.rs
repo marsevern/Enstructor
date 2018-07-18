@@ -305,7 +305,6 @@ impl Synom for WrapperEnum {
 enum WrapperInner {
     Enum(WrapperInnerEnum),
     Struct(WrapperInnerStruct),
-    Implicit(WrapperInnerImplicit),
 }
 
 impl From<WrapperInner> for syn::Item {
@@ -314,7 +313,6 @@ impl From<WrapperInner> for syn::Item {
         match other {
             Enum(e) => e.into(),
             Struct(s) => s.into(),
-            Implicit(i) => i.into(),
         }
     }
 }
@@ -326,8 +324,6 @@ impl Synom for WrapperInner {
             map!(syn!(WrapperInnerEnum), WrapperInner::Enum)
             |
             map!(syn!(WrapperInnerStruct), WrapperInner::Struct)
-            |
-            map!(syn!(WrapperInnerImplicit), WrapperInner::Implicit)
         )
     }
 }
