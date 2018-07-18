@@ -1634,6 +1634,20 @@ trait AsGenerics<'a> {
     fn as_generic(&'a self) -> Vec<GenericType<'a>>;
 }
 
+trait MapInto<U, T: Into<U>>: IntoIterator<Item = T> {
+    fn map_into(
+        self,
+    ) -> std::iter::Map<<Self as std::iter::IntoIterator>::IntoIter, fn(T) -> U>
+    where
+        Self: Sized,
+    {
+        self.into_iter().map(Into::into)
+    }
+}
+
+impl<U, T: Into<U>, I: IntoIterator<Item = T>> MapInto<U, T> for I {
+}
+
 #[allow(dead_code)]
 crate fn intersection<'a, T: 'a + PartialEq>(
     a: impl IntoIterator<Item = &'a T>,
