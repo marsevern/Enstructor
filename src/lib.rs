@@ -187,6 +187,7 @@ pub fn enum_wrapper(input: TokenStream) -> TokenStream {
         .as_items()
         .iter()
         .for_each(|i| i.to_tokens(&mut out));
+    wrapper.as_wrapper().to_tokens(&mut out);
     // panic!("{}", out);
     out.into()
 }
@@ -255,7 +256,6 @@ pub fn derive_display(input: TokenStream) -> TokenStream {
 /// 	}
 /// }
 ///
-
 #[derive(Clone)]
 struct WrapperEnum {
     attrs:       Vec<syn::Attribute>,
@@ -270,6 +270,39 @@ struct WrapperEnum {
 impl WrapperEnum {
     fn as_items(&self) -> Vec<syn::Item> {
         self.inner_types.iter().cloned().map(Into::into).collect()
+    }
+    fn as_wrapper(self) -> syn::ItemEnum {
+        let variants = self.inner_types.into_iter().map(|s| {
+            let mut ty = s.ident().into_token_stream();
+            s.generics().split_for_impl().1.to_tokens(&mut ty);
+            let fields = syn::Fields::Unnamed(syn::FieldsUnnamed {
+                paren_token: s.ident().span().into(),
+                unnamed:     Some(syn::Field {
+                    attrs:       Default::default(),
+                    vis:         syn::Visibility::Inherited,
+                    ident:       Default::default(),
+                    colon_token: Default::default(),
+                    ty:          syn::parse2(ty).unwrap(),
+                }).into_iter()
+                    .collect(),
+            });
+            syn::Variant {
+                attrs:        Default::default(),
+                ident:        s.ident().clone(),
+                fields:       fields,
+                discriminant: Default::default(),
+            }
+        });
+
+        syn::ItemEnum {
+            attrs:       self.attrs,
+            vis:         self.vis,
+            enum_token:  self.enum_token,
+            ident:       self.ident,
+            generics:    self.generics,
+            brace_token: self.brace_token,
+            variants:    variants.collect(),
+        }
     }
 }
 impl Synom for WrapperEnum {
